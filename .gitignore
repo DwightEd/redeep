@@ -1,0 +1,31 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+.tmp_pkgs/
+.tmp_runtime/
+build/
+dist/
+
+# Experiment artifacts can be very large.
+outputs/
+artifacts/
+*.parquet
+*.safetensors
+*.pt
+*.pth
+
+# Local data and model mounts.
+data/
+external/
+models/
+
+# Editors and OS metadata.
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

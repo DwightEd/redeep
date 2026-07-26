@@ -1,0 +1,65 @@
+name: redeep-ragtruth-llama2-cross-backbone
+seed: 2024
+output_dir: ../outputs
+
+dataset:
+  # Clone https://github.com/ParticleMedia/RAGTruth and update these paths if needed.
+  response_path: ../external/RAGTruth/dataset/response.jsonl
+  source_path: ../external/RAGTruth/dataset/source_info.jsonl
+  generator_model: llama-2-7b-chat
+  tasks: [QA, Data2txt, Summary]
+  include_truncated_test: true
+  dev_per_task: 50
+  split_seed: 2024
+  system_prompt: You are a helpful assistant.
+
+models:
+  llama31:
+    name: Meta-Llama-3.1-8B-Instruct
+    family: llama
+    path: /share/home/tm902089733300000/a903202310/lys/models/Meta-Llama-3.1-8B-Instruct
+    dtype: bfloat16
+    device_map: auto
+    attn_implementation: sdpa
+    trust_remote_code: false
+    enable_thinking: false
+  qwen3:
+    name: Qwen3-8B
+    family: qwen3
+    path: /share/home/tm902089733300000/a903202310/lys/models/Qwen3-8B
+    dtype: bfloat16
+    device_map: auto
+    attn_implementation: sdpa
+    trust_remote_code: false
+    enable_thinking: false
+
+extraction:
+  context_top_fraction: 0.10
+  copying_candidate_count: 32
+  copying_vocab_sample_size: 1024
+  copying_seed: 2024
+  token_chunk_size: 16
+  # >= both target vocabularies: exact one-pass logits per 16-token chunk.
+  vocab_chunk_size: 262144
+  capture_to_cpu: true
+  jsd_modes: [standard, legacy_redeep]
+  primary_jsd_mode: standard
+  primary_ecs_mode: context_only
+  include_legacy_whole_prefix_ecs: true
+
+calibration:
+  alpha: 1.0
+  head_k_min: 1
+  head_k_max: 32
+  layer_k_min: 1
+  layer_k_max: 32
+  beta_min: 0.1
+  beta_max: 1.9
+  beta_step: 0.1
+  selection_metric: task_macro_token_auc
+
+evaluation:
+  bootstrap_samples: 1000
+  bootstrap_seed: 42
+  confidence_level: 0.95
+  include_quality_good_sensitivity: true
