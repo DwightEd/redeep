@@ -27,13 +27,22 @@ The complete frozen protocol is in
 
 ## Expected data
 
-Clone the official RAGTruth repository under `external/RAGTruth`:
+The remote cluster already provides the official RAGTruth repository at:
 
-```bash
-git clone https://github.com/ParticleMedia/RAGTruth.git external/RAGTruth
-git -C external/RAGTruth checkout --detach \
-  c103204b9ce28d6bbad859304bf30de72b8ed8fe
+```text
+/share/home/tm902089733300000/a903202310/lys/data/RAGTruth
 ```
+
+The checked-in config directly reads:
+
+```text
+/share/home/tm902089733300000/a903202310/lys/data/RAGTruth/dataset/response.jsonl
+/share/home/tm902089733300000/a903202310/lys/data/RAGTruth/dataset/source_info.jsonl
+```
+
+`scripts/setup_remote.sh` validates these files and never downloads another
+copy. The strict data audit checks their canonical SHA256 values against the
+pinned official release.
 
 After filtering `model == "llama-2-7b-chat"`, the loader requires:
 

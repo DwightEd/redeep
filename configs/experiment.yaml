@@ -3,9 +3,9 @@ seed: 2024
 output_dir: ../outputs
 
 dataset:
-  # Clone https://github.com/ParticleMedia/RAGTruth and update these paths if needed.
-  response_path: ../external/RAGTruth/dataset/response.jsonl
-  source_path: ../external/RAGTruth/dataset/source_info.jsonl
+  # Pre-downloaded official RAGTruth repository on the remote cluster.
+  response_path: /share/home/tm902089733300000/a903202310/lys/data/RAGTruth/dataset/response.jsonl
+  source_path: /share/home/tm902089733300000/a903202310/lys/data/RAGTruth/dataset/source_info.jsonl
   generator_model: llama-2-7b-chat
   tasks: [QA, Data2txt, Summary]
   include_truncated_test: true
