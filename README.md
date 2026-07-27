@@ -135,6 +135,35 @@ completed shards.  `--force` deliberately recomputes the selected stage.
 Run this one-response smoke before launching all three full splits and record
 its wall time plus peak GPU/CPU memory.
 
+### Resume artifacts created before the alignment fix
+
+Older commits rendered the fixed response through the model chat template.
+Llama's Jinja template trims message content, so RAGTruth response `17235`,
+whose raw text ends in a newline, failed exact character alignment. Current
+code appends the response verbatim.
+
+Because feature manifests pin the code commit, pull the fix and explicitly
+adopt compatible completed shards before resuming. The adoption command first
+verifies the old commit plus the config, data, model, tokenizer, Copying Heads,
+and every Parquet hash. It records the old provenance, backs up the original
+manifests, and never changes Parquet values.
+
+```bash
+git pull --ff-only
+source .venv/bin/activate
+
+python scripts/adopt_alignment_resume.py \
+  --config configs/experiment.yaml --model llama31
+
+python scripts/adopt_alignment_resume.py \
+  --config configs/experiment.yaml --model llama31 --apply
+
+CUDA_VISIBLE_DEVICES=0 bash scripts/run_model.sh llama31
+```
+
+Do not add `--force`; the resumed run skips the adopted shards and starts from
+the first missing response.
+
 Mechanistic extraction directly reads projection weights, so Accelerate
 CPU/disk offload is rejected. With `device_map: auto`, expose enough GPU
 memory (one or multiple GPUs) to keep the complete 8B model resident.
