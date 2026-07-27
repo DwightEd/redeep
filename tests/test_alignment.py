@@ -155,6 +155,21 @@ def test_empty_response_is_rejected():
         align_teacher_forced_example(example, tokenizer)
 
 
+def test_response_may_repeat_the_complete_prompt():
+    tokenizer = FakeChatTokenizer()
+    base = _example()
+    example = replace(
+        base,
+        response=f"The prompt was:\n{base.prompt}",
+        spans=(),
+    )
+
+    aligned = align_teacher_forced_example(example, tokenizer)
+
+    assert aligned.rendered_text.endswith(example.response)
+    assert len(aligned.response_token_positions) == len(example.response)
+
+
 def test_ambiguous_context_is_rejected():
     tokenizer = FakeChatTokenizer()
     example = _example(prompt="CTX and CTX", context="CTX")

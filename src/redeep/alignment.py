@@ -67,8 +67,18 @@ def align_teacher_forced_example(
         model_family=model_family,
         system_prompt=system_prompt,
     )
+    if not example.response:
+        raise ValueError(f"response {example.response_id} must not be empty")
+    response_start = len(rendered) - len(example.response)
+    response_end = len(rendered)
+    if rendered[response_start:response_end] != example.response:
+        raise ValueError(
+            f"response {example.response_id} is not the verbatim final assistant continuation"
+        )
     prompt_start, prompt_end = locate_unique(
-        rendered, example.prompt, field=f"response {example.response_id} rendered prompt"
+        rendered[:response_start],
+        example.prompt,
+        field=f"response {example.response_id} rendered prompt",
     )
     context_local_start, context_local_end = locate_unique(
         example.prompt,
@@ -77,13 +87,9 @@ def align_teacher_forced_example(
     )
     context_start = prompt_start + context_local_start
     context_end = prompt_start + context_local_end
-    if not example.response:
-        raise ValueError(f"response {example.response_id} must not be empty")
-    response_start = len(rendered) - len(example.response)
-    response_end = len(rendered)
-    if response_start < prompt_end or rendered[response_start:response_end] != example.response:
+    if response_start < prompt_end:
         raise ValueError(
-            f"response {example.response_id} is not the verbatim final assistant continuation"
+            f"response {example.response_id} begins before the rendered prompt ends"
         )
 
     encoded = tokenizer(
