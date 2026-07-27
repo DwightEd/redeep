@@ -19,6 +19,12 @@ def render_teacher_forced_text(
 ) -> str:
     """Render a prompt and fixed RAGTruth response with the target chat template.
 
+    Only the system/user messages and assistant generation header are rendered
+    by the template.  The fixed response is then appended verbatim.  Real chat
+    templates commonly apply Jinja's ``trim`` filter to message content; passing
+    the response as an assistant message would therefore silently remove
+    leading/trailing whitespace and invalidate RAGTruth character offsets.
+
     Qwen3's thinking mode is explicitly disabled; otherwise a Llama2-generated
     response would be placed under a semantically different assistant format.
     """
@@ -26,19 +32,18 @@ def render_teacher_forced_text(
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": example.prompt},
-        {"role": "assistant", "content": example.response},
     ]
     family = (model_family or getattr(tokenizer, "name_or_path", "")).lower()
     kwargs: dict[str, Any] = {
         "tokenize": False,
-        "add_generation_prompt": False,
+        "add_generation_prompt": True,
     }
     if "qwen" in family:
         kwargs["enable_thinking"] = False
-    rendered = tokenizer.apply_chat_template(messages, **kwargs)
-    if not isinstance(rendered, str):
+    rendered_prefix = tokenizer.apply_chat_template(messages, **kwargs)
+    if not isinstance(rendered_prefix, str):
         raise TypeError("apply_chat_template(..., tokenize=False) must return a string")
-    return rendered
+    return rendered_prefix + example.response
 
 
 def align_teacher_forced_example(
@@ -72,12 +77,14 @@ def align_teacher_forced_example(
     )
     context_start = prompt_start + context_local_start
     context_end = prompt_start + context_local_end
-    response_start, response_end = _locate_unique_after(
-        rendered,
-        example.response,
-        after=prompt_end,
-        field=f"response {example.response_id} rendered response",
-    )
+    if not example.response:
+        raise ValueError(f"response {example.response_id} must not be empty")
+    response_start = len(rendered) - len(example.response)
+    response_end = len(rendered)
+    if response_start < prompt_end or rendered[response_start:response_end] != example.response:
+        raise ValueError(
+            f"response {example.response_id} is not the verbatim final assistant continuation"
+        )
 
     encoded = tokenizer(
         rendered,
@@ -173,24 +180,6 @@ def align_teacher_forced_example(
         token_labels=tuple(token_labels),
         context_token_positions=tuple(context_positions),
     )
-
-
-def _locate_unique_after(
-    text: str,
-    substring: str,
-    *,
-    after: int,
-    field: str,
-) -> tuple[int, int]:
-    if not substring:
-        raise ValueError(f"{field} must not be empty")
-    first = text.find(substring, after)
-    if first < 0:
-        raise ValueError(f"{field} does not occur after the rendered prompt")
-    second = text.find(substring, first + 1)
-    if second >= 0:
-        raise ValueError(f"{field} occurs more than once after the prompt")
-    return first, first + len(substring)
 
 
 def _overlaps(start_a: int, end_a: int, start_b: int, end_b: int) -> bool:

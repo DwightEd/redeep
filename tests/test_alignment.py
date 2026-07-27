@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 
 import pytest
 
-from redeep.alignment import align_teacher_forced_example
+from redeep.alignment import align_teacher_forced_example, render_teacher_forced_text
 from redeep.schemas import CharSpan, RagTruthExample
 
 
@@ -29,10 +30,12 @@ class FakeChatTokenizer:
 
     def apply_chat_template(self, messages, **kwargs):
         self.template_kwargs = kwargs
+        assert len(messages) == 2
+        assert kwargs["add_generation_prompt"] is True
         return (
             f"<BOS><SYSTEM>{messages[0]['content']}</SYSTEM>"
             f"<USER>{messages[1]['content']}</USER>"
-            f"<ASSISTANT>{messages[2]['content']}</ASSISTANT>"
+            "<ASSISTANT>"
         )
 
     def __call__(self, text, **kwargs):
@@ -117,6 +120,39 @@ def test_qwen_can_be_selected_by_explicit_family():
     tokenizer.name_or_path = "unknown"
     align_teacher_forced_example(_example(), tokenizer, model_family="qwen3")
     assert tokenizer.template_kwargs["enable_thinking"] is False
+
+
+def test_response_is_appended_verbatim_after_generation_prompt():
+    tokenizer = FakeChatTokenizer()
+    example = replace(
+        _example(prompt="Question mentions ABCDE\nCTX\noutput:"),
+        response="\nABCDE\n",
+        spans=(CharSpan(2, 4, "BC"),),
+    )
+
+    rendered = render_teacher_forced_text(example, tokenizer)
+    aligned = align_teacher_forced_example(example, tokenizer)
+
+    assert rendered.endswith(example.response)
+    assert aligned.rendered_text.endswith(example.response)
+    assert aligned.response_offsets == (
+        (0, 1),
+        (1, 2),
+        (2, 3),
+        (3, 4),
+        (4, 5),
+        (5, 6),
+        (6, 7),
+    )
+    assert aligned.token_labels == (0, 0, 1, 1, 0, 0, 0)
+
+
+def test_empty_response_is_rejected():
+    tokenizer = FakeChatTokenizer()
+    example = replace(_example(), response="", spans=())
+
+    with pytest.raises(ValueError, match="must not be empty"):
+        align_teacher_forced_example(example, tokenizer)
 
 
 def test_ambiguous_context_is_rejected():
